@@ -1,0 +1,12 @@
+procrastinate	先延ばしにする	I tend to procrastinate when I have a difficult report to write.	難しい報告書を書くときは、つい先延ばしにしてしまいます。	 0	 0
+reluctant	気が進まない	She was reluctant to share her results before they were checked.	彼女は、結果が確認される前にそれを共有することに気が進まなかった。	 0	 0
+keep in shape	体型を維持する，健康を保つ	I try to exercise every day to keep in shape.	体型を維持するために毎日運動するようにしています。	 0	 0
+go viral	ネットやSNSで爆発的に話題になる	I hope our new video will go viral within a few hours.	私たちの新しい動画が数時間のうちにネットで爆発的に広まるといいなと思っています。	 0	 0
+adapted the recipe to	～に合わせてレシピを工夫した	They adapted the recipe to local tastes by using less sugar.	彼らは砂糖を減らして、そのレシピを地元の好みに合わせて工夫しました。	 0	 0
+dehumidifier	除湿機	We run a dehumidifier in the closet during the rainy season.	梅雨の時期は、クローゼットで除湿機を稼働させます。	 0	 0
+scarcity	欠乏，不足	The scarcity of fresh water is a serious problem in many regions.	淡水の不足は、多くの地域で深刻な問題です。	 0	 0
+legible	判読できる，読みやすい	Please make sure your handwriting is legible.	手書きの文字が読みやすいように気をつけてください。	 0	 0
+append	～を付け加える，添付する	You can append a short note to the end of the file.	ファイルの末尾に短いメモを付け加えることができます。	 0	 0
+cut down on	～を減らす	I am trying to cut down on sugary snacks this month.	今月は甘いお菓子を減らそうとしています。	 0	 0
+impair	～を損なう，弱める	Lack of sleep can impair your ability to concentrate.	睡眠不足は集中力を損なうことがあります。	 0	 0
+beloved	最愛の，愛される	The beloved teacher retired after thirty years at the school.	その愛された先生は、学校で30年勤めたあと退職しました。	 0	 0

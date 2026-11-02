@@ -1,0 +1,159 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<title>tango web - core tests</title>
+<style>
+  body { font: 14px/1.6 system-ui, "Yu Gothic UI", sans-serif; margin: 20px; }
+  .ok { color: #1a7f37; } .ng { color: #d1242f; font-weight: 600; }
+  h1 { font-size: 18px; }
+</style>
+</head>
+<body>
+<h1>tango web — core.js のテスト</h1>
+<pre id="out"></pre>
+<script src="../js/core.js"></script>
+<script>
+(function () {
+  var C = window.TangoCore;
+  var out = document.getElementById('out');
+  var pass = 0, fail = 0;
+
+  function eq(name, actual, expected) {
+    var a = JSON.stringify(actual), e = JSON.stringify(expected);
+    if (a === e) { pass++; out.innerHTML += '<span class="ok">PASS</span> ' + name + '\n'; }
+    else { fail++; out.innerHTML += '<span class="ng">FAIL</span> ' + name + '\n   expected ' + e + '\n   actual   ' + a + '\n'; }
+  }
+
+  // 解答欄の表示と同じ形（違う文字を [ ] で囲む）にして比べる
+  function marked(ans, cor) {
+    var f = C.diffFlags(ans, cor), s = '';
+    Array.from(ans).forEach(function (ch, i) { s += f[i] ? '[' + ch + ']' : ch; });
+    return s;
+  }
+
+  /* ---- 穴埋め ---- */
+  eq('asterisk: 小文字だけ * に，空白は _', C.asterisk("Can I have a look"), "C**_I_****_*_****");
+  eq('asterisk: 大文字・記号はそのまま', C.asterisk("Someone's car"), "S******'*_***");
+  eq('questionText: 英文中の英単語を [ **** ] に', C.questionText({ e: 'keep in shape', ea: 'I try to keep in shape.' }), 'I try to [ ****_**_***** ].');
+  eq('questionText: 英単語が含まれない例文はそのまま', C.questionText({ e: 'x', ea: 'abc' }), 'abc');
+  eq('questionText: 英単語が空でも壊れない', C.questionText({ e: '', ea: 'abc' }), 'abc');
+
+  /* ---- 違いの判定（Windows版 Diff_flags と同じ結果） ---- */
+  eq('diff: 一致なら印なし', marked('I have an apple', 'I have an apple'), 'I have an apple');
+  eq('diff: 余分な文字', marked('colour', 'color'), 'colo[u]r');
+  eq('diff: 入れ替わり', marked('recieve', 'receive'), 'rec[i]e[v]e');
+  eq('diff: 足りない文字は抜けた位置の直後', marked('I have apple', 'I have an apple'), 'I have a[p]ple');
+  eq('diff: 末尾が足りない', marked('I have', 'I have an apple'), 'I hav[e]');
+  eq('diff: 二重スペースの違い', marked('Someone\'s car had rolled', 'Someone\'s car  had rolled'), "Someone's car [h]ad rolled");
+  eq('diff: 末尾が余分', marked('hello world!', 'hello'), 'hello[ ][w][o][r][l][d][!]');
+  eq('diff: 解答が空', C.diffFlags('', 'abc'), []);
+  eq('diff: 正解が空', marked('abc', ''), '[a][b][c]');
+  eq('diff: 日本語もコードポイント単位', marked('あいう', 'あう'), 'あ[い]う');
+
+  /* ---- words.txt ---- */
+  var text = 'novelty\t新規性\tThe invention lacks novelty.\t新規性がない。\t 106\t 0\r\n\r\nkeep in shape\t体型を維持する\tI try to keep in shape.\t維持する。\t0\t0\r\n';
+  var words = C.parseWords(text);
+  eq('parseWords: 件数と列', [words.length, words[0].e, words[0].correct, words[1].e, words[1].ja], [2, 'novelty', 106, 'keep in shape', '維持する。']);
+  eq('serializeWords: Windows版と同じ " 106" 形式・CRLF', C.serializeWords(words).split('\r\n')[0], 'novelty\t新規性\tThe invention lacks novelty.\t新規性がない。\t 106\t 0');
+  eq('parseWords(serializeWords) の往復', C.parseWords(C.serializeWords(words)), words);
+  eq('parseWords: BOM付き', C.parseWords('﻿a\tb\tc\td\t3\t4')[0].e, 'a');
+  eq('parseWords: 列が足りない行も読む', C.parseWords('a\tb')[0], { e: 'a', j: 'b', ea: '', ja: '', correct: 0, wrong: 0 });
+  eq('clean: タブ・改行は空白に', C.clean('a\tb\nc'), 'a b c');
+
+  /* ---- progress / setting ---- */
+  eq('parseProgress: 目標で頭打ち', C.parseProgress('0\r\n5\r\n99\r\n', 20).slice(0, 4), [0, 5, 20, 0]);
+  eq('serializeProgress: 32行', C.serializeProgress(new Array(32).fill(0)).split('\r\n').length, 33);
+  eq('parseSetting', C.parseSetting('20\r\n5\r\nC:\\Users\\x\\').goal, 20);
+  eq('parseSetting: 不正値は20', C.parseSetting('abc').goal, 20);
+
+  /* ---- 忘却曲線 ---- */
+  var DAY = C.DAY_MS;
+  var t0 = new Date(2026, 0, 1, 10, 0, 0);
+  var tr = new C.ReviewTracker();
+  eq('record: 復習中でない単語の C は記録しない', tr.record('C', 'apple', t0), null);
+  var line = tr.record('W', 'apple', t0);
+  eq('record: W は日時付きで記録', line, '2026/01/01 10:00:00\tW\tapple');
+  eq('stage 0 になる', tr.stageOf('apple'), 0);
+  var wl = [{ e: 'apple' }, { e: 'pear' }];
+  eq('不正解直後は復習の時期ではない', tr.pickDue(wl, t0).index, -1);
+  tr.questionCounter += 4;
+  eq('4問後はまだ', tr.pickDue(wl, t0).index, -1);
+  tr.questionCounter += 1;
+  eq('5問後に復習の時期', tr.pickDue(wl, t0).index, 0);
+  eq('復習の時期より前の C は記録しない（別単語）', tr.record('C', 'pear', t0), null);
+  eq('5問後の C で stage 1 へ', [tr.record('C', 'apple', t0) !== null, tr.stageOf('apple')], [true, 1]);
+  eq('1日たたないと次の復習にならない', tr.pickDue(wl, new Date(t0.getTime() + DAY - 1000)).index, -1);
+  eq('1日後に復習の時期', tr.pickDue(wl, new Date(t0.getTime() + DAY)).index, 0);
+  eq('時期前の C は段階を進めない', tr.record('C', 'apple', new Date(t0.getTime() + 1000)), null);
+  var t1 = new Date(t0.getTime() + DAY);
+  tr.record('C', 'apple', t1);                                   // stage 2
+  tr.record('C', 'apple', new Date(t1.getTime() + 2 * DAY));     // stage 3
+  tr.record('C', 'apple', new Date(t1.getTime() + 8 * DAY));     // stage 4
+  eq('2日・6日を経て stage 4', tr.stageOf('apple'), 4);
+  eq('31日後に復習の時期', tr.pickDue(wl, new Date(t1.getTime() + 8 * DAY + 31 * DAY)).index, 0);
+  tr.record('C', 'apple', new Date(t1.getTime() + 8 * DAY + 31 * DAY));
+  eq('全段階を終えたら卒業', tr.stageOf('apple'), -1);
+
+  var tu = new C.ReviewTracker();
+  tu.record('W', 'cat', t0); tu.questionCounter += 5;
+  tu.record('U', 'cat', t0);
+  eq('U は段階を据え置き，5問数え直し', [tu.stageOf('cat'), tu.pickDue([{ e: 'cat' }], t0).index], [0, -1]);
+
+  var tw = new C.ReviewTracker();
+  tw.record('W', 'dog', t0); tw.questionCounter += 5; tw.record('C', 'dog', t0);
+  tw.record('W', 'dog', new Date(t0.getTime() + 5 * DAY));
+  eq('不正解で最初の段階からやり直し', tw.stageOf('dog'), 0);
+
+  var tn = new C.ReviewTracker();
+  tn.record('W', 'old', t0);
+  eq('rename: 状態を新しい単語に引き継ぐ', [tn.rename('old', 'new', t0), tn.stageOf('old'), tn.stageOf('new')], ['2026/01/01 10:00:00\tR\told\tnew', -1, 0]);
+
+  var tl = new C.ReviewTracker();
+  tl.loadFromLog(['2026/01/01 10:00:00\tW\tapple', '2026/01/01 10:05:00\tW\tpear', '2026/01/02 10:00:00\tC\tapple', 'bad line', '# comment',
+                  '2026/01/03 10:00:00\tR\tpear\tpears']);
+  eq('ログから状態を復元（stage と R の引き継ぎ）', [tl.stageOf('apple'), tl.stageOf('pear'), tl.stageOf('pears')], [1, -1, 0]);
+  eq('再起動後，段階0は復習の時期として扱う', tl.pickDue([{ e: 'pears' }], new Date(2026, 0, 3, 11, 0, 0)).index, 0);
+  eq('serializeLog: 先頭にヘッダ', C.serializeLog(['x']).split('\r\n')[0].charAt(0), '#');
+
+  /* ---- 出題 ---- */
+  function seq(values) { var i = 0; return function () { return values[i++ % values.length]; }; }
+  var ws = [{ e: 'a', j: 'あ', ea: '', ja: '', correct: 3 }, { e: 'b', j: 'い', ea: '', ja: '', correct: 1 },
+            { e: 'c', j: 'う', ea: '', ja: '', correct: 1 }, { e: 'd', j: 'え', ea: '', ja: '', correct: 2 }];
+  var empty = new C.ReviewTracker();
+  var p = C.pickQuestion(ws, empty, t0, seq([0]), -1);
+  eq('pickQuestion: 正解数が最小の中から', [p.index, p.minValue, p.minCount, p.review], [1, 1, 2, 0]);
+  p = C.pickQuestion(ws, empty, t0, seq([0]), 1);
+  eq('pickQuestion: 直前と同じ問題は避ける', p.index, 2);
+  var due = new C.ReviewTracker();
+  due.record('W', 'd', t0); due.questionCounter += 5;
+  p = C.pickQuestion(ws, due, t0, seq([0]), -1);
+  eq('pickQuestion: 復習の時期の単語を優先', [p.index, p.review, p.dueCount], [3, 1, 1]);
+  eq('pickQuestion: 単語が無い', C.pickQuestion([], empty, t0).index, -1);
+
+  var big = [];
+  for (var i = 0; i < 30; i++) big.push({ e: 'w' + i, j: i % 10 === 0 ? 'dup' : 'j' + i, ea: '', ja: '', correct: 0 });
+  var ok = true, uniq = true, posOk = true;
+  for (var r = 0; r < 200; r++) {
+    var q = r % 30;
+    var ch = C.buildChoices(big, q, Math.random, 10);
+    if (ch.choices.length !== 10) ok = false;
+    if (new Set(ch.choices).size !== ch.choices.length) uniq = false;
+    if (ch.choices[ch.answerPos] !== big[q].j) posOk = false;
+  }
+  eq('buildChoices: 10個・重複なし・正解の位置', [ok, uniq, posOk], [true, true, true]);
+  var few = C.buildChoices([{ j: 'x' }, { j: 'y' }, { j: 'x' }], 0, Math.random, 10);
+  eq('buildChoices: 少ない単語数でも壊れない（重複の和訳は1つに）', few.choices.slice().sort(), ['x', 'y']);
+  var seenPos = new Set();
+  for (var s = 0; s < 400; s++) seenPos.add(C.buildChoices(big, 1, Math.random, 10).answerPos);
+  eq('buildChoices: 正解が10番目(0キー)にも来る', seenPos.has(9), true);
+
+  eq('modeCorrect: 最頻値', C.modeCorrect([{ correct: 107 }, { correct: 107 }, { correct: 106 }, { correct: 0 }]), 107);
+  eq('modeCorrect: 空は0', C.modeCorrect([]), 0);
+
+  out.innerHTML += '\n' + (fail ? '<span class="ng">' : '<span class="ok">') + 'RESULT: ' + pass + ' passed, ' + fail + ' failed</span>\n';
+  document.title = (fail ? 'FAIL ' : 'PASS ') + pass + '/' + (pass + fail);
+})();
+</script>
+</body>
+</html>

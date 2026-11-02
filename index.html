@@ -1,0 +1,207 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<title>tango web - 英単語学習</title>
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+<header class="top">
+  <div class="brand">tango<small>web</small></div>
+  <select id="deckSelect" aria-label="デッキ（単語ファイルの組）"></select>
+  <nav class="tabs" role="tablist" aria-label="モード">
+    <button type="button" role="tab" id="tab-jtoe"     data-tab="jtoe">英訳<kbd>F1</kbd></button>
+    <button type="button" role="tab" id="tab-etoj"     data-tab="etoj" aria-selected="true">和訳<kbd>F2</kbd></button>
+    <button type="button" role="tab" id="tab-settings" data-tab="settings">設定<kbd>F3</kbd></button>
+  </nav>
+  <div class="goal" title="今日の進捗（目標問題数）">
+    <span id="goalText">今日 0/20</span>
+    <div class="bar" aria-hidden="true"><div id="goalBar"></div></div>
+  </div>
+</header>
+
+<main>
+  <!-- 単語がまだ無いとき -->
+  <section id="view-empty" class="view" hidden>
+    <div class="empty">
+      <h2>単語が登録されていません</h2>
+      <p>Windows版 tango の <code>words.txt</code> を読み込むか、サンプルで試してください。</p>
+      <div class="actions">
+        <button type="button" class="primary" id="btnLoadFile">words.txt を読み込む</button>
+        <button type="button" id="btnLoadSample">サンプルで試す</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- 英訳モード：日本語を見て英語を入力する -->
+  <section id="view-jtoe" class="view" hidden>
+    <div class="qhead">
+      <span class="qno" id="j-qno"></span>
+      <span class="badge review" id="j-review" hidden></span>
+    </div>
+    <div class="box ja" id="j-ja" aria-label="日本語"></div>
+    <div class="box en blank" id="j-blank" aria-label="英文（穴埋め）"></div>
+    <div class="box ja2" id="j-ja2" aria-label="英文の和訳"></div>
+    <div id="answer" class="answer" contenteditable="true" role="textbox" aria-label="英語で答える"
+         spellcheck="false" autocapitalize="off" autocorrect="off" autocomplete="off" data-placeholder="英語を入力"></div>
+    <div class="box answerbox" id="j-answer" hidden aria-label="正解"></div>
+    <div class="actions">
+      <button type="button" data-act="answer">答えの表示<kbd>F4</kbd></button>
+      <button type="button" data-act="diff">違いを赤で示す<kbd>F5</kbd></button>
+      <button type="button" data-act="asterisk">穴埋め英文の表示切替<kbd>F6</kbd></button>
+      <button type="button" data-act="memo">メモ</button>
+      <button type="button" data-act="pass" class="pass">パス<kbd>Esc</kbd></button>
+    </div>
+  </section>
+
+  <!-- 和訳モード：英語を見て日本語を選ぶ -->
+  <section id="view-etoj" class="view">
+    <div class="qhead">
+      <span class="qno" id="e-qno"></span>
+      <span class="badge review" id="e-review" hidden></span>
+    </div>
+    <div class="box en big" id="e-word" aria-label="英単語"></div>
+    <div class="box en blank" id="e-sample" aria-label="英文（穴埋め）"></div>
+    <ol id="choices" class="choices" aria-label="和訳の選択肢（数字キー 1〜9, 0）"></ol>
+    <div class="box answerbox" id="e-answer" hidden aria-label="正解"></div>
+    <div class="actions">
+      <button type="button" data-act="answer">答えの表示<kbd>F4</kbd></button>
+      <button type="button" data-act="asterisk">穴埋め英文の表示切替<kbd>F6</kbd></button>
+      <button type="button" data-act="memo">メモ</button>
+      <button type="button" data-act="pass" class="pass">パス<kbd>Esc</kbd></button>
+    </div>
+  </section>
+
+  <!-- 設定 -->
+  <section id="view-settings" class="view" hidden>
+
+    <details class="panel" open>
+      <summary>デッキ</summary>
+      <p class="hint">Windows版の <code>tango1</code>〜<code>tango4</code> のように、単語ファイルごとに分けて学習できます。デッキごとに単語・復習の記録・進捗が別々に保存されます。</p>
+      <div class="row">
+        <label>名前 <input type="text" id="deckName" maxlength="40"></label>
+        <button type="button" id="btnRenameDeck">名前を変更</button>
+        <button type="button" id="btnNewDeck">＋ 新しいデッキ</button>
+        <button type="button" id="btnDeleteDeck" class="danger">このデッキを削除</button>
+      </div>
+    </details>
+
+    <details class="panel" open>
+      <summary>今日の目標と進捗</summary>
+      <div class="row">
+        <label>1日の目標問題数 <input type="number" id="goalInput" min="1" max="999" step="1"></label>
+        <button type="button" id="btnClearProgress" class="danger">月の進捗をクリア</button>
+      </div>
+      <div id="progressRows" class="progress-rows" aria-label="1日から31日までの進捗"></div>
+    </details>
+
+    <details class="panel" open>
+      <summary>ファイルの読み込み・書き出し</summary>
+      <p class="hint">Windows版のファイルがそのまま使えます（<code>words.txt</code> / <code>wrong_log.txt</code> / <code>progress.txt</code> / <code>setting.txt</code>）。
+        読み込むときはファイル名で種類を判別します。データはこのブラウザの中にだけ保存され、サーバーには送信されません。</p>
+      <div class="row">
+        <button type="button" class="primary" id="btnImport">ファイルを読み込む…</button>
+        <input type="file" id="fileInput" accept=".txt,text/plain" multiple hidden>
+      </div>
+      <div class="row">
+        <button type="button" data-export="words">words.txt</button>
+        <button type="button" data-export="wrong_log">wrong_log.txt</button>
+        <button type="button" data-export="progress">progress.txt</button>
+        <button type="button" data-export="setting">setting.txt</button>
+        <span class="hint inline">を書き出す</span>
+      </div>
+      <p class="hint warn" id="backupHint">ブラウザのデータを消すと学習記録も消えます。ときどき書き出してバックアップしてください。</p>
+    </details>
+
+    <details class="panel">
+      <summary>単語を追加</summary>
+      <form id="addForm" class="grid-form" autocomplete="off">
+        <label>英単語・言い回し <input type="text" id="addE" required spellcheck="false"></label>
+        <label>和訳 <input type="text" id="addJ" required></label>
+        <label class="wide">例文（上の英単語がそのまま含まれていること） <input type="text" id="addEA" spellcheck="false"></label>
+        <label class="wide">例文の和訳 <input type="text" id="addJA"></label>
+        <label>正解数の初期値
+          <select id="addCorrectMode">
+            <option value="mode">このデッキの最頻値に合わせる（おすすめ）</option>
+            <option value="zero">0（新しく覚える単語用）</option>
+          </select>
+        </label>
+        <div class="form-actions">
+          <button type="submit" class="primary">先頭に追加</button>
+          <span id="addMsg" class="hint inline"></span>
+        </div>
+      </form>
+      <p class="hint">例文の中に英単語がそのまま入っていないと、<code>[ **** ]</code> の穴埋めになりません。
+        「something」のような置き換え語は使わず、例文に出てくる具体的な形を英単語欄に入れてください。
+        学習が進んだデッキに正解数0で追加すると、追加した単語ばかりが出題されるので、最頻値に合わせるのがおすすめです。</p>
+    </details>
+
+    <details class="panel">
+      <summary>単語の一覧 <span id="wordCount" class="count"></span></summary>
+      <div class="row"><input type="search" id="wordSearch" placeholder="検索（英語・和訳）" aria-label="単語を検索"></div>
+      <div class="table-wrap">
+        <table id="wordTable">
+          <thead><tr><th>#</th><th>英単語</th><th>和訳</th><th>正解</th><th>不正解</th><th></th></tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+      <p class="hint" id="wordMore"></p>
+    </details>
+
+    <details class="panel">
+      <summary>メモ <span id="memoCount" class="count"></span></summary>
+      <p class="hint">間違えた単語は自動で、出題中に「メモ」を押した単語も、ここにたまります。
+        書き出したメモは words.txt と同じ形式なので、別のデッキの単語ファイルにそのまま貼り付けられます。</p>
+      <div class="row">
+        <button type="button" id="btnMemoDownload">メモを書き出す</button>
+        <button type="button" id="btnMemoClear" class="danger">メモを空にする</button>
+      </div>
+      <ul id="memoList" class="memo-list"></ul>
+    </details>
+
+    <details class="panel">
+      <summary>クリア</summary>
+      <div class="row">
+        <button type="button" id="btnClearCorrect" class="danger">正解数をクリア</button>
+        <button type="button" id="btnClearWrong" class="danger">不正解数をクリア</button>
+        <button type="button" id="btnClearLog" class="danger">復習の記録（wrong_log）をクリア</button>
+      </div>
+    </details>
+
+    <details class="panel">
+      <summary>使い方・ショートカット</summary>
+      <table class="keys">
+        <tr><th>F1 / F2 / F3</th><td>英訳 / 和訳 / 設定 のタブを切り替え</td></tr>
+        <tr><th>F4</th><td>答えの表示・非表示</td></tr>
+        <tr><th>F5</th><td>（英訳）解答欄の、正解と違うところを赤字で示す</td></tr>
+        <tr><th>F6</th><td>[ **** ] で穴埋めした英文の表示・非表示</td></tr>
+        <tr><th>Esc</th><td>パス（わからないときに答えを見て次へ）</td></tr>
+        <tr><th>1〜9, 0</th><td>（和訳）選択肢を選ぶ</td></tr>
+      </table>
+      <p class="hint">ブラウザによっては F1・F3・F5・F6 がブラウザ自身の機能に使われることがあります。うまく動かないときは画面のボタンを使ってください。</p>
+      <h3>出題の決め方</h3>
+      <ul class="plain">
+        <li>復習の時期になった単語があれば、いちばん遅れているものを優先して出します。</li>
+        <li>なければ、正解数がいちばん少ない単語の中からランダムに出します。</li>
+        <li>不正解にした単語は、<strong>5問後 → 1日後 → 2日後 → 6日後 → 31日後</strong> に復習します（復習に「正解」して「自信あり」と答えるたびに次の段階へ進みます）。</li>
+        <li>復習の時期より前に出て正解したときは、段階は進みません。</li>
+      </ul>
+      <p class="hint">tango web 1.0.0 — Windows版 tango_vb の Web 版</p>
+    </details>
+  </section>
+</main>
+
+<footer id="statusbar" class="status"></footer>
+
+<div id="modalRoot"></div>
+<div id="toastRoot" aria-live="polite"></div>
+
+<script src="js/core.js"></script>
+<script src="js/storage.js"></script>
+<script src="js/sample.js"></script>
+<script src="js/app.js"></script>
+</body>
+</html>

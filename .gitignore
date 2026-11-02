@@ -1,0 +1,8 @@
+# 個人の学習データ（Windows版のファイルなど）は公開しない。サンプルは sample/ に置く。
+/words*.txt
+/wrong_log*.txt
+/progress*.txt
+/setting*.txt
+/memo*.txt
+Thumbs.db
+.DS_Store
